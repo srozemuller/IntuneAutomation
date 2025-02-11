@@ -1,34 +1,51 @@
-name: Graph API Action
-
+name: Graph API Intune Automation
 on:
   push:
     branches:
       - main
 
 permissions:
-  id-token: write
+  id-token: write   # Required for OIDC authentication
   contents: read
 
 jobs:
   call-graph-api:
     runs-on: ubuntu-latest
-    environment: graphapi
+    environment: graphApi
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Authenticate with Azure AD and call Graph API
+      - name: Authenticate with Azure AD and call Graph API using PowerShell
+        shell: pwsh
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           GRAPH_SCOPE: "https://graph.microsoft.com/.default"
         run: |
-          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token" \
-            -d "client_id=$AZURE_CLIENT_ID" \
-            -d "grant_type=client_credentials" \
-            -d "scope=$GRAPH_SCOPE" \
-            -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
-            -d "client_assertion=$(cat /home/runner/work/_temp/oidc-token)" | jq -r .access_token)
+          Write-Host "Retrieving OIDC token from GitHub Actions..."
 
-          echo "Graph API Token Acquired"
-          curl -X GET "https://graph.microsoft.com/v1.0/users" -H "Authorization: Bearer $TOKEN"
+          $oidcTokenResponse = Invoke-RestMethod -Method Get -Headers @{Authorization = "Bearer $env:ACTIONS_ID_TOKEN_REQUEST_TOKEN"} -Uri $env:ACTIONS_ID_TOKEN_REQUEST_URL
+          $oidcToken = $oidcTokenResponse.value
+
+          Write-Host "Requesting Microsoft Graph API token..."
+
+          $body = @{
+              client_id             = "$env:AZURE_CLIENT_ID"
+              scope                 = "$env:GRAPH_SCOPE"
+              grant_type            = "client_credentials"
+              client_assertion_type = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+              client_assertion      = "$oidcToken"
+          }
+
+          $tokenResponse = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:AZURE_TENANT_ID/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+          $accessToken = $tokenResponse.access_token
+
+          Write-Host "Graph API Token Acquired!"
+
+          Write-Host "Calling Microsoft Graph API..."
+
+          $graphResponse = Invoke-RestMethod -Method Get -Uri "https://graph.microsoft.com/v1.0/users" -Headers @{Authorization = "Bearer $accessToken"}
+
+          Write-Output "Graph API Response:"
+          Write-Output $graphResponse
