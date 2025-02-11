@@ -1,0 +1,33 @@
+name: Graph API Action
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  call-graph-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate with Azure AD and call Graph API
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          GRAPH_SCOPE: "https://graph.microsoft.com/.default"
+        run: |
+          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token" \
+            -d "client_id=$AZURE_CLIENT_ID" \
+            -d "grant_type=client_credentials" \
+            -d "scope=$GRAPH_SCOPE" \
+            -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
+            -d "client_assertion=$(cat /home/runner/work/_temp/oidc-token)" | jq -r .access_token)
+
+          echo "Graph API Token Acquired"
+          curl -X GET "https://graph.microsoft.com/v1.0/users" -H "Authorization: Bearer $TOKEN"
