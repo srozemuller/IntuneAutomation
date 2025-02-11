@@ -12,6 +12,7 @@ permissions:
 jobs:
   call-graph-api:
     runs-on: ubuntu-latest
+    environment: graphapi
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
