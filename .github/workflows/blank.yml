@@ -23,7 +23,7 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           GRAPH_SCOPE: "https://graph.microsoft.com/.default"
         run: |
-          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/$AZURE_TENANT_ID/oauth2/v2.0/token" \
+          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token" \
             -d "client_id=$AZURE_CLIENT_ID" \
             -d "grant_type=client_credentials" \
             -d "scope=$GRAPH_SCOPE" \
