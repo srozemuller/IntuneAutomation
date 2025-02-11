@@ -37,8 +37,9 @@ jobs:
               client_assertion_type = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
               client_assertion      = "$oidcToken"
           }
-
-          $tokenResponse = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$env:AZURE_TENANT_ID/oauth2/v2.0/token" -ContentType "application/x-www-form-urlencoded" -Body $body
+          $url = "https://login.microsoftonline.com/{0}/oauth2/v2.0/token" -f $env:AZURE_TENANT_ID
+          $url
+          $tokenResponse = Invoke-RestMethod -Method Post -Uri $url -ContentType "application/x-www-form-urlencoded" -Body $body
           $accessToken = $tokenResponse.access_token
 
           Write-Host "Graph API Token Acquired!"
