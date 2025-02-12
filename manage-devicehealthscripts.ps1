@@ -32,10 +32,6 @@ try {
     $method = "POST"
     foreach ($folder in $folders) {
         try {
-            $folder.FullName
-            ls
-            ls $folder.FullName
-
             $scripts = Invoke-webrequest -Uri $apiUrl -Method GET -Headers $headers
             $existingScript = ($scripts.content | Convertfrom-json).value | Where-Object {$_.displayName -eq $folder.Name}
             if ($existingScript) {
@@ -45,8 +41,8 @@ try {
 
             $detectScript = Get-ChildItem -Path $folder.FullName -File -Filter "detect_*" | Select-Object -First 1
             if ($detectScript) {
-                Write-Host "File found: $($file.FullName)"
-                $command = get-content $file
+                Write-Host "File found: $($detectScript.FullName)"
+                $command = get-content $detectScript
                 $bytes = [System.Text.Encoding]::UTF8.GetBytes($command)
                 $detectionScriptBinary = [Convert]::ToBase64String($bytes)
             } else {
@@ -55,8 +51,8 @@ try {
 
             $remediateScript = Get-ChildItem -Path $folder.FullName -File -Filter "remediate_*" | Select-Object -First 1
             if ($remediateScript) {
-                Write-Host "File found: $($file.FullName)"
-                $command = get-content $file
+                Write-Host "File found: $($remediateScript.FullName)"
+                $command = get-content $remediateScript
                 $bytes = [System.Text.Encoding]::UTF8.GetBytes($command)
                 $remediationScriptBinary = [Convert]::ToBase64String($bytes)
             } else {
