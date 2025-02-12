@@ -33,4 +33,4 @@ jobs:
       - name: Manage Device Health scripts
         shell: pwsh
         run: |
-          .\manage-devicehealthscripts.ps1 -GraphToken $env.GRAPH_TOKEN -ScriptsFolder .\RemediationScripts
+          .\manage-devicehealthscripts.ps1 -GraphToken $env:GRAPH_TOKEN -ScriptsFolder .\RemediationScripts
