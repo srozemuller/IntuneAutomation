@@ -30,4 +30,8 @@ jobs:
           $GraphToken = ($GraphTokenResponse | ConvertFrom-Json).accessToken
           Write-Host "::add-mask::$GraphToken"
           Write-Host "GRAPH_TOKEN=$GraphToken" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $GraphToken
+          $headers = @{
+            Authorization = "Bearer {0}" -f $GraphToken
+          }
+          Invoke-RestMethod -uri "https://graph.microsoft.com/beta/users" -headers $headers -method GET
+          
