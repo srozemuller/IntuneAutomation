@@ -33,6 +33,9 @@ try {
     foreach ($folder in $folders) {
         try {
             $folder.FullName
+            ls
+            ls $folder.FullName
+
             $scripts = Invoke-webrequest -Uri $apiUrl -Method GET -Headers $headers
             $existingScript = ($scripts.content | Convertfrom-json).value | Where-Object {$_.displayName -eq $folder.Name}
             if ($existingScript) {
