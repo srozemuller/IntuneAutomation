@@ -34,4 +34,7 @@ jobs:
             Authorization = "Bearer {0}" -f $GraphToken
           }
           Invoke-RestMethod -uri "https://graph.microsoft.com/beta/users" -headers $headers -method GET
-          
+      - name: Get Folder
+        shell: pwsh
+        run: |
+          ls
