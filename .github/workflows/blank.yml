@@ -16,7 +16,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Get Entra ID Token
+        run: |
+          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token" \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          -d "client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+          -d "scope=https://graph.microsoft.com/.default" \
+          -d "grant_type=client_credentials" \
+          -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
+          -d "client_assertion=$(jq -r '.value' $GITHUB_ACTIONS_ID_TOKEN)" | jq -r .access_token)
 
+          echo "::add-mask::$TOKEN"
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+
+      - name: Use Token
+        run: |
+          echo "Retrieved token of length: ${#TOKEN}"
       - name: Authenticate with Azure AD and call Graph API using PowerShell
         shell: pwsh
         env:
