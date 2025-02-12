@@ -16,30 +16,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Get OIDC Token and Exchange for Graph API Token
-        shell: pwsh
-        run: |
-          $OidcToken = (Invoke-RestMethod -Uri $env:ACTIONS_ID_TOKEN_REQUEST_URL -Method GET -Headers @{ "Authorization" = "Bearer $env:ACTIONS_ID_TOKEN_REQUEST_TOKEN" }).value
-
-          $TokenResponse = Invoke-RestMethod -Uri "https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token" -Method POST -ContentType "application/x-www-form-urlencoded" -Body @{
-            client_id = "${{ secrets.AZURE_CLIENT_ID }}"
-            client_assertion = $OidcToken
-            client_assertion_type = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-            grant_type = "client_credentials"
-            scope = "https://graph.microsoft.com/.default"
-          }
-
-          $GraphToken = $TokenResponse.access_token
-          Write-Host "::add-mask::$GraphToken"
-          Write-Host "GRAPH_TOKEN=$GraphToken" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Call Microsoft Graph API
-        shell: pwsh
-        run: |
-          $GraphToken = "${{ env.GRAPH_TOKEN }}"
-          $GraphResponse = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/me" -Headers @{
-            Authorization = "Bearer $GraphToken"
-            "Content-Type" = "application/json"
-          } -Method GET
-
-          Write-Host "Graph API Response: $GraphResponse"
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+          enable-AzPSSession: true
