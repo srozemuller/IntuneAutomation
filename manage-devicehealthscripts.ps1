@@ -20,7 +20,7 @@ Provide the path where the scripts folders are.
 
         [parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string]$ScriptsFolder,
+        [string]$ScriptsFolder
     )
 try {
     $folders = Get-ChildItem -Path $ScriptsFolder -Directory
