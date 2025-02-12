@@ -16,53 +16,35 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Get Entra ID Token
+      - name: Request GitHub OIDC Token
+        id: get-oidc-token
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = await github.rest.actions.createOidcToken({});
+            console.log("OIDC Token obtained");
+            return response.data.value;
+
+      - name: Exchange OIDC Token for Entra ID Token
+        id: get-entra-token
         run: |
-          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token" \
+          OIDC_TOKEN="${{ steps.get-oidc-token.outputs.result }}"
+          
+          RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/oauth2/v2.0/token" \
           -H "Content-Type: application/x-www-form-urlencoded" \
           -d "client_id=${{ secrets.AZURE_CLIENT_ID }}" \
-          -d "scope=https://graph.microsoft.com/.default" \
-          -d "grant_type=client_credentials" \
+          -d "client_assertion=$OIDC_TOKEN" \
           -d "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
-          -d "client_assertion=$(jq -r '.value' $GITHUB_ACTIONS_ID_TOKEN)" | jq -r .access_token)
+          -d "grant_type=client_credentials" \
+          -d "scope=https://graph.microsoft.com/.default")
 
-          echo "::add-mask::$TOKEN"
-          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+          GRAPH_TOKEN=$(echo $RESPONSE | jq -r .access_token)
+          echo "::add-mask::$GRAPH_TOKEN"
+          echo "GRAPH_TOKEN=$GRAPH_TOKEN" >> $GITHUB_ENV
 
-      - name: Use Token
+      - name: Use Graph API Token
         run: |
-          echo "Retrieved token of length: ${#TOKEN}"
-      - name: Authenticate with Azure AD and call Graph API using PowerShell
-        shell: pwsh
-        env:
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          GRAPH_SCOPE: "https://graph.microsoft.com/.default"
-        run: |
-          Write-Host "Retrieving OIDC token from GitHub Actions..."
-
-          $oidcTokenResponse = Invoke-RestMethod -Method Get -Headers @{Authorization = "Bearer $env:ACTIONS_ID_TOKEN_REQUEST_TOKEN"} -Uri $env:ACTIONS_ID_TOKEN_REQUEST_URL
-          $oidcToken = $oidcTokenResponse.value
-
-          Write-Host "Requesting Microsoft Graph API token..."
-
-          $body = @{
-              client_id             = "$env:AZURE_CLIENT_ID"
-              scope                 = "$env:GRAPH_SCOPE"
-              grant_type            = "client_credentials"
-              client_assertion_type = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-              client_assertion      = "$oidcToken"
-          }
-          $url = "https://login.microsoftonline.com/{0}/oauth2/v2.0/token" -f $env:AZURE_TENANT_ID
-          $url
-          $tokenResponse = Invoke-RestMethod -Method Post -Uri $url -ContentType "application/x-www-form-urlencoded" -Body $body
-          $accessToken = $tokenResponse.access_token
-
-          Write-Host "Graph API Token Acquired!"
-
-          Write-Host "Calling Microsoft Graph API..."
-
-          $graphResponse = Invoke-RestMethod -Method Get -Uri "https://graph.microsoft.com/v1.0/users" -Headers @{Authorization = "Bearer $accessToken"}
-
-          Write-Output "Graph API Response:"
-          Write-Output $graphResponse
+          echo "Token retrieved successfully."
+          curl -s -X GET "https://graph.microsoft.com/v1.0/me" \
+          -H "Authorization: Bearer $GRAPH_TOKEN" \
+          -H "Content-Type: application/json"
