@@ -29,7 +29,7 @@ jobs:
           $GraphTokenResponse = az account get-access-token --resource https://graph.microsoft.com
           $GraphToken = ($GraphTokenResponse | ConvertFrom-Json).accessToken
           Write-Host $GraphToken
-          Write-Host "GRAPH_TOKEN=$GraphToken" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "GRAPH_TOKEN=$GraphToken" >> $GITHUB_ENV
 
       - name: Manage Device Health scripts
         shell: pwsh
