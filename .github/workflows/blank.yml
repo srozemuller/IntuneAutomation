@@ -1,0 +1,37 @@
+name: Graph API Intune Automation
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read
+
+jobs:
+  call-graph-api:
+    runs-on: ubuntu-latest
+    environment: GraphApi
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Get Folder
+        shell: pwsh
+        run: |
+          ls
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+          enable-AzPSSession: true
+      - name: Get Graph API Token
+        shell: pwsh
+        run: |
+          $GraphTokenResponse = az account get-access-token --resource https://graph.microsoft.com
+          $GraphToken = ($GraphTokenResponse | ConvertFrom-Json).accessToken
+          Write-Host "::add-mask::$GraphToken"
+          Write-Host "GRAPH_TOKEN=$GraphToken" | Out-File -FilePath $env:GITHUB_ENV -Append
+
