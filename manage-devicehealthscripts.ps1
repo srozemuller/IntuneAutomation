@@ -32,10 +32,11 @@ try {
     $method = "POST"
     foreach ($folder in $folders) {
         try {
+            $folder.FullName
             $scripts = Invoke-webrequest -Uri $apiUrl -Method GET -Headers $headers
             $existingScript = ($scripts.content | Convertfrom-json).value | Where-Object {$_.displayName -eq $folder.Name}
             if ($existingScript) {
-                $apiUrl = "{0}/{1}" -f $apiUrl,$existingScript.id
+                $apiUrl = "{0}/{1}" -f $apiUrl, $existingScript.id
                 $method = "PATCH"
             }
 
@@ -81,6 +82,6 @@ try {
     }
 }
 catch {
-    Write-Error "Not able to to run succesfully, $_"
+    Write-Error "Not able to run succesfully, $_"
 }
 
