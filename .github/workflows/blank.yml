@@ -1,5 +1,6 @@
 name: Graph API Intune Automation
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
