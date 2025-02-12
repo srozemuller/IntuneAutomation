@@ -1,4 +1,4 @@
-name: Graph API Intune Automation
+name: Manage Intune Device Health Scripts
 on:
   workflow_dispatch:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  id-token: write   # Required for OIDC authentication
+  id-token: write
   contents: read
 
 jobs:
@@ -16,10 +16,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Get Folder
-        shell: pwsh
-        run: |
-          ls
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -34,4 +30,7 @@ jobs:
           $GraphToken = ($GraphTokenResponse | ConvertFrom-Json).accessToken
           Write-Host "::add-mask::$GraphToken"
           Write-Host "GRAPH_TOKEN=$GraphToken" | Out-File -FilePath $env:GITHUB_ENV -Append
-
+      - name: Manage Device Health scripts
+        shell: pwsh
+        run: |
+          manage-devicehealthscripts.ps1 -GraphToken "${{ env.GRAPH_TOKEN }}" -ScriptsFolder .\RemediationScripts
