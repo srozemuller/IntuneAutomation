@@ -61,8 +61,8 @@ try {
 
             $body = @{
                 displayName = $folder.Name
-                description = ""
-                publisher = "Sander Rozemuller"
+                description = "This script is updated using GitHub Actions"
+                publisher = $env:GITHUB_ACTOR
                 runAs32Bit = $true
                 runAsAccount = "system"
                 enforceSignatureCheck = $false
