@@ -56,7 +56,8 @@ try {
                 $bytes = [System.Text.Encoding]::UTF8.GetBytes($command)
                 $remediationScriptBinary = [Convert]::ToBase64String($bytes)
             } else {
-                Write-Error "No remediation file found. File should start with remediate_"
+                $remediationScriptBinary = $null
+                Write-Warning "No remediation file found. File should start with remediate_"
             }
 
             $body = @{
