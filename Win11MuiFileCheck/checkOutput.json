@@ -1,0 +1,32 @@
+{
+    "Rules":[ 
+        { 
+           "SettingName":"consentUxMuiDll",
+           "Operator":"IsEquals",
+           "DataType":"Boolean",
+           "Operand":true,
+           "MoreInfoUrl":"https://rozemuller.com",
+           "RemediationStrings":[ 
+              { 
+                 "Language":"en_US",
+                 "Title":"ConsentUX.dll.mui does not exist in C:\\Windows\\System32\\en-US",
+                 "Description": "ConsentUX.dll.mui be available for Administrator protection"
+              }
+           ]
+        },
+        { 
+           "SettingName":"consentExeMui",
+           "Operator":"IsEquals",
+           "DataType":"Boolean",
+           "Operand":true,
+           "MoreInfoUrl":"https://rozemuller.com",
+           "RemediationStrings":[ 
+              {
+                 "Language": "en_US",
+                 "Title": "consent.exe.mui does not exist in C:\\Windows\\System32\\en-US",
+                 "Description": "consent.exe.mui be available for Administrator protection"
+              }
+           ]
+        }
+     ]
+    }
