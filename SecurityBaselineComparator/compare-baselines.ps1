@@ -1,9 +1,9 @@
 param (
     [Parameter()]
-    [string]$Path1,
+    [string]$PolicyName,
 
     [Parameter()]
-    [string]$Path2,
+    [string]$ComparePolicyName,
 
     [ValidateSet("Console", "Csv", "Html")]
     [string]$OutputType = "Console",
@@ -328,8 +328,8 @@ function Export-HtmlReport {
       <ul class="text-sm text-muted-foreground list-disc pl-4">
         <li><strong>Platform:</strong> $($Policy1Meta.platforms)</li>
         <li><strong>Settings:</strong> $($Policy1Meta.settingCount)</li>
-        <li><strong>Created:</strong> $([datetime]$Policy1Meta.createdDateTime).ToString("yyyy-MM-dd HH:mm")</li>
-        <li><strong>Modified:</strong> $([datetime]$Policy1Meta.lastModifiedDateTime).ToString("yyyy-MM-dd HH:mm")</li>
+        <li><strong>Created:</strong> $([datetime]$Policy1Meta.createdDateTime)</li>
+        <li><strong>Modified:</strong> $([datetime]$Policy1Meta.lastModifiedDateTime)</li>
         <li><strong>Description:</strong> $($Policy1Meta.description)</li>
       </ul>
     </div>
@@ -338,8 +338,8 @@ function Export-HtmlReport {
       <ul class="text-sm text-muted-foreground list-disc pl-4">
         <li><strong>Platform:</strong> $($Policy2Meta.platforms)</li>
         <li><strong>Settings:</strong> $($Policy2Meta.settingCount)</li>
-        <li><strong>Created:</strong> $([datetime]$Policy2Meta.createdDateTime).ToString("yyyy-MM-dd HH:mm")</li>
-        <li><strong>Modified:</strong> $([datetime]$Policy2Meta.lastModifiedDateTime).ToString("yyyy-MM-dd HH:mm")</li>
+        <li><strong>Created:</strong> $([datetime]$Policy2Meta.createdDateTime)</li>
+        <li><strong>Modified:</strong> $([datetime]$Policy2Meta.lastModifiedDateTime)</li>
         <li><strong>Description:</strong> $($Policy2Meta.description)</li>
       </ul>
     </div>
@@ -424,8 +424,8 @@ function Get-PolicyAndConvertToJson {
 Connect-MgGraph -Scopes "DeviceManagementConfiguration.Read.All"
 
 # Fetch full policies
-$baseline1 = Get-PolicyAndConvertToJson -Name "U-DEVBASE-ITBV-Windows-v1.0"
-$baseline2 = Get-PolicyAndConvertToJson -Name "New Security Baseline Policy"
+$baseline1 = Get-PolicyAndConvertToJson -Name $PolicyName
+$baseline2 = Get-PolicyAndConvertToJson -Name $ComparePolicyName
 
 # Continue with:
 $parsed1 = Get-SettingsFromJson -pathObject $baseline1
