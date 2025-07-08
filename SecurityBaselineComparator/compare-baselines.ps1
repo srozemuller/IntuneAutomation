@@ -1,0 +1,443 @@
+param (
+    [Parameter()]
+    [string]$Path1,
+
+    [Parameter()]
+    [string]$Path2,
+
+    [ValidateSet("Console", "Csv", "Html")]
+    [string]$OutputType = "Console",
+
+    [string]$OutputPath = ".\BaselineComparisonReport"
+)
+# Make sure Microsoft.Graph is installed and imported
+Import-Module Microsoft.Graph
+function Get-SettingsFromJson {
+    param (
+        [Parameter(Mandatory)]
+        [object]$pathObject
+    )
+
+    $json = if ($pathObject -is [string]) {
+        Get-Content -Path $pathObject -Raw | ConvertFrom-Json
+    }
+    else {
+        $pathObject
+    }
+
+    $json.settings | ForEach-Object {
+        $setting = $_
+        $definition = $setting.settingDefinitions | Where-Object { $_.id -eq $setting.settingInstance.settingDefinitionId }
+
+        [PSCustomObject]@{
+            Id                  = $setting.id
+            SettingId           = $setting.settingInstance.settingDefinitionId
+            DisplayName         = $definition.displayName
+            HelpText            = $definition.helpText
+            Description         = $definition.description
+            SelectedOption      = $setting.settingInstance.choiceSettingValue.value
+            DefaultOption       = $definition.defaultOptionId
+            IsDefault           = ($setting.settingInstance.choiceSettingValue.value -eq $definition.defaultOptionId)
+            SelectedOptionLabel = ($definition.options | Where-Object { $_.itemId -eq $setting.settingInstance.choiceSettingValue.value }).displayName
+            DefaultOptionLabel  = ($definition.options | Where-Object { $_.itemId -eq $definition.defaultOptionId }).displayName
+        }
+    }
+}
+
+function Compare-Baselines($baseline1, $baseline2) {
+    $report = @()
+
+    foreach ($setting1 in $baseline1) {
+        $setting2 = $baseline2 | Where-Object { $_.SettingId -eq $setting1.SettingId }
+
+        if ($null -eq $setting2) {
+            $report += [PSCustomObject]@{
+                SettingId       = $setting1.SettingId
+                DisplayName     = $setting1.DisplayName
+                HelpText        = $setting1.HelpText
+                Description     = $setting1.Description
+                Status          = "Only in File1"
+                File1_Value     = $setting1.SelectedOptionLabel
+                File2_Value     = "-"
+                File1_IsDefault = $setting1.IsDefault
+                File2_IsDefault = "-"
+                Explanation     = "Setting only exists in File 1"
+            }
+        }
+        elseif ($setting1.SelectedOption -ne $setting2.SelectedOption) {
+            $report += [PSCustomObject]@{
+                SettingId       = $setting1.SettingId
+                DisplayName     = $setting1.DisplayName
+                HelpText        = $setting1.HelpText
+                Description     = $setting1.Description
+                Status          = "Different"
+                File1_Value     = $setting1.SelectedOptionLabel
+                File2_Value     = $setting2.SelectedOptionLabel
+                File1_IsDefault = $setting1.IsDefault
+                File2_IsDefault = $setting2.IsDefault
+                Explanation     = "Selected options differ"
+            }
+        }
+        else {
+            $report += [PSCustomObject]@{
+                SettingId       = $setting1.SettingId
+                DisplayName     = $setting1.DisplayName
+                HelpText        = $setting1.HelpText
+                Description     = $setting1.Description
+                Status          = "Same"
+                File1_Value     = $setting1.SelectedOptionLabel
+                File2_Value     = $setting2.SelectedOptionLabel
+                File1_IsDefault = $setting1.IsDefault
+                File2_IsDefault = $setting2.IsDefault
+                Explanation     = "Values match"
+            }
+        }
+    }
+
+    foreach ($setting2 in $baseline2) {
+        if (-not ($baseline1 | Where-Object { $_.SettingId -eq $setting2.SettingId })) {
+            $report += [PSCustomObject]@{
+                SettingId       = $setting2.SettingId
+                DisplayName     = $setting2.DisplayName
+                HelpText        = $setting2.HelpText
+                Description     = $setting2.Description
+                Status          = "Only in File2"
+                File1_Value     = "-"
+                File2_Value     = $setting2.SelectedOptionLabel
+                File1_IsDefault = "-"
+                File2_IsDefault = $setting2.IsDefault
+                Explanation     = "Setting only exists in File 2"
+            }
+        }
+    }
+
+    return $report
+}
+
+function Export-HtmlReport {
+    param (
+        [Parameter(Mandatory)]
+        $report,
+        [string]$path = "./BaselineComparisonReport",
+        [Parameter(Mandatory)]
+        [object]$Policy1Meta,
+        [Parameter(Mandatory)]
+        [object]$Policy2Meta
+    )
+    $groups = $report | Group-Object Status
+    $modals = ""
+    $groupTables = ""
+    $modalCounter = 0
+
+    # Count totals
+    $counts = $report | Group-Object -Property Status
+    $total = $report.Count
+    $diffCount = ($counts | Where-Object { $_.Name -eq 'Different' }).Count
+    $file1Count = ($counts | Where-Object { $_.Name -eq 'Only in File1' }).Count
+    $file2Count = ($counts | Where-Object { $_.Name -eq 'Only in File2' }).Count
+    $sameCount = ($counts | Where-Object { $_.Name -eq 'Same' }).Count
+
+    $summaryBadge = @"
+<div class='mt-2 mb-6 text-sm font-medium text-green-700 bg-green-100 border border-green-300 rounded px-4 py-2'>
+  Compared $total settings |
+  $diffCount different |
+  $file1Count only in file1 |
+  $file2Count only in file2 |
+  $sameCount same
+</div>
+"@
+    foreach ($group in $groups) {
+        $groupName = $group.Name
+        $rows = ""
+
+        foreach ($entry in $group.Group) {
+            $modalId = "modal$modalCounter"
+            $rows += @"
+<tr>
+  <td class='border px-3 py-2 text-blue-600 underline cursor-pointer' onclick="openModal('$modalId')">$($entry.DisplayName)</td>
+  <td class='border px-3 py-2'>$($entry.File1_Value)</td>
+  <td class='border px-3 py-2'>$($entry.File2_Value)</td>
+  <td class='border px-3 py-2'>$($entry.File1_IsDefault)</td>
+  <td class='border px-3 py-2'>$($entry.File2_IsDefault)</td>
+  <td class='border px-3 py-2'>$($entry.Explanation)</td>
+</tr>
+"@
+
+            $modals += @"
+<div id='$modalId' class='modal'>
+  <div class='modal-content'>
+    <span class='close' onclick="closeModal('$modalId')">&times;</span>
+    <h2>$($entry.DisplayName)</h2>
+    <p><strong>SettingId:</strong> $($entry.SettingId)</p>
+    <p><strong>Description:</strong> $($entry.Description)</p>
+    <p><strong>HelpText:</strong> $($entry.HelpText)</p>
+    <p><strong>File1 Value:</strong> $($entry.File1_Value) (Default: $($entry.File1_IsDefault))</p>
+    <p><strong>File2 Value:</strong> $($entry.File2_Value) (Default: $($entry.File2_IsDefault))</p>
+    <p><strong>Status:</strong> $($entry.Status)</p>
+    <p><strong>Explanation:</strong> $($entry.Explanation)</p>
+  </div>
+</div>
+"@
+            $modalCounter++
+        }
+
+        $summaryBadge
+
+        $groupTables += @"
+<h2 class='text-xl font-semibold mt-8 mb-2'>$groupName</h2>
+<div class='overflow-x-auto rounded-md border border-border bg-card'>
+<table class='w-full text-sm text-left'>
+  <thead class='bg-muted text-muted-foreground'>
+    <tr>
+      <th class='border px-3 py-2'>DisplayName</th>
+      <th class='border px-3 py-2'>File1 Value</th>
+      <th class='border px-3 py-2'>File2 Value</th>
+      <th class='border px-3 py-2'>File1 Is Default</th>
+      <th class='border px-3 py-2'>File2 Is Default</th>
+      <th class='border px-3 py-2'>Explanation</th>
+    </tr>
+  </thead>
+  <tbody>
+    $rows
+  </tbody>
+</table>
+</div>
+"@
+    }
+
+    $html = @"
+<!DOCTYPE html>
+<html lang='en' data-theme='light'>
+<head>
+  <meta charset='UTF-8'>
+  <title>Baseline Comparison Report</title>
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --text: #111827;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --muted: #f3f4f6;
+      --muted-foreground: #6b7280;
+    }
+
+    [data-theme='dark'] {
+      --bg: #0f172a;
+      --text: #f1f5f9;
+      --card: #1e293b;
+      --border: #334155;
+      --muted: #1e293b;
+      --muted-foreground: #cbd5e1;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      background-color: var(--card);
+    }
+
+    th, td {
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    tr:hover {
+      background-color: rgba(255, 255, 0, 0.1);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      padding-top: 60px;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.6);
+    }
+
+    .modal-content {
+      background-color: var(--card);
+      color: var(--text);
+      margin: auto;
+      padding: 20px;
+      border: 1px solid var(--border);
+      width: 60%;
+      border-radius: 12px;
+    }
+
+    .close {
+      color: var(--muted-foreground);
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .close:hover {
+      color: red;
+      cursor: pointer;
+    }
+
+    .toggle-darkmode {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <button class='toggle-darkmode' onclick="toggleTheme()">Toggle Dark Mode</button>
+  <h1>Intune Baseline Comparison Report</h1>
+
+  <div class="rounded-md border p-4 bg-card mb-6">
+  <p class="text-sm text-muted-foreground mb-2">Comparing the following Intune security baseline policies:</p>
+  <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+    <div style="flex: 1;">
+      <h3 class="text-base font-semibold mb-1">Baseline 1: $($Policy1Meta.name)</h3>
+      <ul class="text-sm text-muted-foreground list-disc pl-4">
+        <li><strong>Platform:</strong> $($Policy1Meta.platforms)</li>
+        <li><strong>Settings:</strong> $($Policy1Meta.settingCount)</li>
+        <li><strong>Created:</strong> $([datetime]$Policy1Meta.createdDateTime).ToString("yyyy-MM-dd HH:mm")</li>
+        <li><strong>Modified:</strong> $([datetime]$Policy1Meta.lastModifiedDateTime).ToString("yyyy-MM-dd HH:mm")</li>
+        <li><strong>Description:</strong> $($Policy1Meta.description)</li>
+      </ul>
+    </div>
+    <div style="flex: 1;">
+      <h3 class="text-base font-semibold mb-1">Baseline 2: $($Policy2Meta.name)</h3>
+      <ul class="text-sm text-muted-foreground list-disc pl-4">
+        <li><strong>Platform:</strong> $($Policy2Meta.platforms)</li>
+        <li><strong>Settings:</strong> $($Policy2Meta.settingCount)</li>
+        <li><strong>Created:</strong> $([datetime]$Policy2Meta.createdDateTime).ToString("yyyy-MM-dd HH:mm")</li>
+        <li><strong>Modified:</strong> $([datetime]$Policy2Meta.lastModifiedDateTime).ToString("yyyy-MM-dd HH:mm")</li>
+        <li><strong>Description:</strong> $($Policy2Meta.description)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+  $groupTables
+
+  $modals
+
+  <script>
+    function openModal(id) {
+      document.getElementById(id).style.display = 'block';
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function toggleTheme() {
+      const root = document.documentElement;
+      const current = root.getAttribute('data-theme');
+      root.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+    }
+
+    // Auto-detect dark mode
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  </script>
+</body>
+</html>
+"@
+
+    $file = "$path.html"
+    Set-Content -Path $file -Value $html -Encoding UTF8
+    Write-Host " HTML report created: $file"
+}
+
+
+# PROCESS
+
+
+function Get-PolicyAndConvertToJson {
+    param (
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    # TemplateId filter for Baseline family
+    $filter = @"
+(templateReference/TemplateId eq '66df8dce-0166-4b82-92f7-1f74e3ca17a3_1' or 
+ templateReference/TemplateId eq '66df8dce-0166-4b82-92f7-1f74e3ca17a3_3' or 
+ templateReference/TemplateId eq '66df8dce-0166-4b82-92f7-1f74e3ca17a3_4') 
+ and templateReference/TemplateFamily eq 'Baseline'
+"@ -replace "`r`n", ""
+
+    $encodedFilter = [System.Web.HttpUtility]::UrlEncode($filter)
+    $uri = "https://graph.microsoft.com/beta/deviceManagement/configurationPolicies?`$filter=$encodedFilter"
+    $response = Invoke-MgGraphRequest -Method GET -Uri $uri
+
+    # Find policy by name (case-insensitive)
+    $policy = $response.value | Where-Object { $_.name -ieq $Name }
+
+    if (-not $policy) {
+        throw "Policy with name '$Name' not found in baseline search."
+    }
+
+    Write-Host "Found policy '$($policy.name)' with id $($policy.id)" -ForegroundColor Green
+
+    # Fetch full policy with expanded fields
+    $fullUri = "https://graph.microsoft.com/beta/deviceManagement/configurationPolicies/$($policy.id)" +
+    "?`$expand=assignments,settings(`$expand=settingDefinitions)"
+
+    $fullResponse = Invoke-MgGraphRequest -Method GET -Uri $fullUri
+    return $fullResponse
+}
+
+
+# Connect & setup profile (if not already done)
+Connect-MgGraph -Scopes "DeviceManagementConfiguration.Read.All"
+
+# Fetch full policies
+$baseline1 = Get-PolicyAndConvertToJson -Name "U-DEVBASE-ITBV-Windows-v1.0"
+$baseline2 = Get-PolicyAndConvertToJson -Name "New Security Baseline Policy"
+
+# Continue with:
+$parsed1 = Get-SettingsFromJson -pathObject $baseline1
+$parsed2 = Get-SettingsFromJson -pathObject $baseline2
+
+$diffReport = Compare-Baselines -baseline1 $parsed1 -baseline2 $parsed2
+
+switch ($OutputType) {
+    "Console" { $diffReport | Format-Table -AutoSize }
+    "Csv" { $diffReport | Export-Csv -Path "$OutputPath.csv" -NoTypeInformation; Write-Host "CSV report saved to $OutputPath.csv" }
+    "Html" {
+        Export-HtmlReport -report $diffReport -path "./Report" `
+            -Policy1Meta $baseline1 -Policy2Meta $baseline2 
+    }
+}
