@@ -1,3 +1,51 @@
+ # SYNOPSIS
+# This PowerShell script compares two Microsoft Intune security baseline policies and generates a detailed report 
+# highlighting their differences, similarities, and unique settings. It supports output in Console, CSV, or HTML formats.
+#
+# More information about this script can be found at: https://rozemuller.com/automated-intune-security-baseline-comparisons-with-powershell/
+#
+# DESCRIPTION
+# The script connects to the Microsoft Graph API to retrieve the full details of the specified Intune security baseline 
+# policies, including their settings and metadata. It parses the settings, compares them, and generates a structured 
+# report in the desired format. This tool is ideal for administrators managing Intune security baselines, enabling 
+# efficient comparison and informed decision-making.
+#
+# PARAMETERS
+# -PolicyName [string] (Mandatory)
+#   The name of the first Intune security baseline policy to compare.
+#
+# -ComparePolicyName [string] (Mandatory)
+#   The name of the second Intune security baseline policy to compare.
+#
+# -OutputType [string] (Optional, Default: "Console")
+#   Specifies the format of the output report. Valid values are:
+#     - "Console": Displays the report in the terminal.
+#     - "Csv": Exports the report to a CSV file.
+#     - "Html": Generates an interactive HTML report.
+#
+# -OutputPath [string] (Optional, Default: ".\BaselineComparisonReport")
+#   The file path where the report will be saved (for CSV or HTML output).
+#
+# EXAMPLES
+# Example 1: Compare two policies and display the report in the console.
+#   ```powershell
+#   .\compare-baselines.ps1 -PolicyName "Baseline1" -ComparePolicyName "Baseline2" -OutputType "Console"
+#   ```
+#
+# Example 2: Compare two policies and export the report to a CSV file.
+#   ```powershell
+#   .\compare-baselines.ps1 -PolicyName "Baseline1" -ComparePolicyName "Baseline2" -OutputType "Csv" -OutputPath "C:\Reports\BaselineComparison"
+#   ```
+#
+# Example 3: Compare two policies and generate an HTML report.
+#   ```powershell
+#   .\compare-baselines.ps1 -PolicyName "Baseline1" -ComparePolicyName "Baseline2" -OutputType "Html" -OutputPath "C:\Reports\BaselineComparison"
+#   ```
+#
+# NOTES
+# - The script requires the Microsoft.Graph PowerShell module. If it is not installed, the script will attempt to install it.
+# - Ensure you have the necessary permissions to access Intune policies via the Microsoft Graph API.
+# - The script uses the "DeviceManagementConfiguration.Read.All" scope for authentication.
 param (
   [Parameter()]
   [string]$PolicyName,
