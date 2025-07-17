@@ -1,169 +1,326 @@
 param (
-    [Parameter()]
-    [string]$PolicyName,
+  [Parameter()]
+  [string]$PolicyName,
 
-    [Parameter()]
-    [string]$ComparePolicyName,
+  [Parameter()]
+  [string]$ComparePolicyName,
 
-    [ValidateSet("Console", "Csv", "Html")]
-    [string]$OutputType = "Console",
+  [ValidateSet("Console", "Csv", "Html")]
+  [string]$OutputType = "Console",
 
-    [string]$OutputPath = ".\BaselineComparisonReport"
+  [string]$OutputPath = ".\BaselineComparisonReport"
 )
 # Make sure Microsoft.Graph is installed and imported
-Import-Module Microsoft.Graph
+
+try {
+  Import-Module Microsoft.Graph
+} catch {
+  Write-Host "Microsoft.Graph module not found. Installing..." -ForegroundColor Yellow
+  Install-Module Microsoft.Graph -Scope CurrentUser -Force -AllowClobber
+  Import-Module Microsoft.Graph
+}
+
 function Get-SettingsFromJson {
+  param (
+    [Parameter(Mandatory)]
+    [object]$pathObject
+  )
+
+  $json = if ($pathObject -is [string]) {
+    Get-Content -Path $pathObject -Raw | ConvertFrom-Json
+  }
+  else {
+    $pathObject
+  }
+
+  $script:results = @()
+
+  function Parse-SettingInstance {
     param (
-        [Parameter(Mandatory)]
-        [object]$pathObject
+      [object]$setting,
+      [object[]]$definitions,
+      [string]$parent = ""
     )
 
-    $json = if ($pathObject -is [string]) {
-        Get-Content -Path $pathObject -Raw | ConvertFrom-Json
-    }
-    else {
-        $pathObject
-    }
+    $instance = $setting.settingInstance
+    $type = $instance.'@odata.type'
+    $definition = $definitions | Where-Object { $_.id -eq $instance.settingDefinitionId }
 
-    $json.settings | ForEach-Object {
-        $setting = $_
-        $definition = $setting.settingDefinitions | Where-Object { $_.id -eq $setting.settingInstance.settingDefinitionId }
+    switch ($type) {
+      # Choice Setting
+      "#microsoft.graph.deviceManagementConfigurationChoiceSettingInstance" {
+        $selectedValue = $instance.choiceSettingValue.value
+        $selectedLabel = ($definition.options | Where-Object { $_.itemId -eq $selectedValue }).displayName
+        $defaultOption = $definition.defaultOptionId
+        $isDefault = ($selectedValue -eq $defaultOption)
+        $defaultLabel = ($definition.options | Where-Object { $_.itemId -eq $defaultOption }).displayName
 
-        [PSCustomObject]@{
+        $script:results += [PSCustomObject]@{
+          Id                  = $setting.id
+          SettingId           = $instance.settingDefinitionId
+          DisplayName         = $definition.displayName
+          HelpText            = $definition.helpText
+          Description         = $definition.description
+          SettingType         = "Choice"
+          SelectedOption      = $selectedValue
+          SelectedOptionLabel = $selectedLabel
+          DefaultOption       = $defaultOption
+          DefaultOptionLabel  = $defaultLabel
+          IsDefault           = $isDefault
+          Parent              = $parent
+        }
+
+        # Recurse into children if present
+        foreach ($child in $instance.choiceSettingValue.children) {
+          Parse-SettingInstance -setting @{ settingInstance = $child } -definitions $definitions -parent $instance.settingDefinitionId
+        }
+      }
+
+      # Simple Setting Collection
+      "#microsoft.graph.deviceManagementConfigurationSimpleSettingCollectionInstance" {
+        $values = $instance.simpleSettingCollectionValue | ForEach-Object { $_.value }
+        $valueLabel = ($values -join ', ')
+
+        $script:results += [PSCustomObject]@{
+          Id                  = $setting.id
+          SettingId           = $instance.settingDefinitionId
+          DisplayName         = $definition.displayName
+          HelpText            = $definition.helpText
+          Description         = $definition.description
+          SettingType         = "SimpleCollection"
+          SelectedOption      = $valueLabel
+          SelectedOptionLabel = $valueLabel
+          DefaultOption       = "-"
+          DefaultOptionLabel  = "-"
+          IsDefault           = $false
+          Parent              = $parent
+        }
+      }
+
+      # Simple Setting
+      "#microsoft.graph.deviceManagementConfigurationSimpleSettingInstance" {
+        $value = $instance.simpleSettingValue.value
+
+        $script:results += [PSCustomObject]@{
+          Id                  = $setting.id
+          SettingId           = $instance.settingDefinitionId
+          DisplayName         = $definition.displayName
+          HelpText            = $definition.helpText
+          Description         = $definition.description
+          SettingType         = "Simple"
+          SelectedOption      = $value
+          SelectedOptionLabel = $value
+          DefaultOption       = "-"
+          DefaultOptionLabel  = "-"
+          IsDefault           = $false
+          Parent              = $parent
+        }
+      }
+
+      # Group Collection
+      "#microsoft.graph.deviceManagementConfigurationGroupSettingCollectionInstance" {
+        foreach ($entry in $instance.groupSettingCollectionValue) {
+          foreach ($child in $entry.children) {
+            Parse-SettingInstance -setting @{ settingInstance = $child } -definitions $definitions -parent $instance.settingDefinitionId
+          }
+        }
+      }
+      # Choice Setting Collection
+        "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance" {
+            foreach ($entry in $instance.choiceSettingCollectionValue) {
+                $selectedValue = $entry.value
+                $selectedLabel = ($definition.options | Where-Object { $_.itemId -eq $selectedValue }).displayName
+                $defaultOption = $definition.defaultOptionId
+                $isDefault = ($selectedValue -eq $defaultOption)
+                $defaultLabel = ($definition.options | Where-Object { $_.itemId -eq $defaultOption }).displayName
+
+                $script:results += [PSCustomObject]@{
+                    Id                  = $setting.id
+                    SettingId           = $instance.settingDefinitionId
+                    DisplayName         = $definition.displayName
+                    HelpText            = $definition.helpText
+                    Description         = $definition.description
+                    SettingType         = "ChoiceCollection"
+                    SelectedOption      = $selectedValue
+                    SelectedOptionLabel = $selectedLabel
+                    DefaultOption       = $defaultOption
+                    DefaultOptionLabel  = $defaultLabel
+                    IsDefault           = $isDefault
+                    Parent              = $parent
+                }
+
+                foreach ($child in $entry.children) {
+                    Parse-SettingInstance -setting @{ settingInstance = $child } -definitions $definitions -parent $instance.settingDefinitionId
+                }
+            }
+        }
+      # Choice Setting Collection
+      "#microsoft.graph.deviceManagementConfigurationChoiceSettingCollectionInstance" {
+        foreach ($entry in $instance.choiceSettingCollectionValue) {
+          $selectedValue = $entry.value
+          $selectedLabel = ($definition.options | Where-Object { $_.itemId -eq $selectedValue }).displayName
+          $defaultOption = $definition.defaultOptionId
+          $isDefault = ($selectedValue -eq $defaultOption)
+          $defaultLabel = ($definition.options | Where-Object { $_.itemId -eq $defaultOption }).displayName
+
+          $script:results += [PSCustomObject]@{
             Id                  = $setting.id
-            SettingId           = $setting.settingInstance.settingDefinitionId
+            SettingId           = $instance.settingDefinitionId
             DisplayName         = $definition.displayName
             HelpText            = $definition.helpText
             Description         = $definition.description
-            SelectedOption      = $setting.settingInstance.choiceSettingValue.value
-            DefaultOption       = $definition.defaultOptionId
-            IsDefault           = ($setting.settingInstance.choiceSettingValue.value -eq $definition.defaultOptionId)
-            SelectedOptionLabel = ($definition.options | Where-Object { $_.itemId -eq $setting.settingInstance.choiceSettingValue.value }).displayName
-            DefaultOptionLabel  = ($definition.options | Where-Object { $_.itemId -eq $definition.defaultOptionId }).displayName
+            SettingType         = "ChoiceCollection"
+            SelectedOption      = $selectedValue
+            SelectedOptionLabel = $selectedLabel
+            DefaultOption       = $defaultOption
+            DefaultOptionLabel  = $defaultLabel
+            IsDefault           = $isDefault
+            Parent              = $parent
+          }
+
+          # Process children if available
+          if ($entry.children) {
+            foreach ($child in $entry.children) {
+              Parse-SettingInstance -setting @{ settingInstance = $child } -definitions $definitions -parent $instance.settingDefinitionId
+            }
+          }
         }
+      }
+      default {
+        Write-Warning "⚠ Unsupported setting type: $type"
+      }
     }
+  }
+
+  foreach ($setting in $json.settings) {
+    Parse-SettingInstance -setting $setting -definitions $setting.settingDefinitions
+  }
+
+  return $results
 }
 
+
+
 function Compare-Baselines($baseline1, $baseline2) {
-    $report = @()
+  $report = @()
 
-    foreach ($setting1 in $baseline1) {
-        $setting2 = $baseline2 | Where-Object { $_.SettingId -eq $setting1.SettingId }
+  foreach ($setting1 in $baseline1) {
+    $setting2 = $baseline2 | Where-Object { $_.SettingId -eq $setting1.SettingId }
 
-        if ($null -eq $setting2) {
-            $report += [PSCustomObject]@{
-                SettingId       = $setting1.SettingId
-                DisplayName     = $setting1.DisplayName
-                HelpText        = $setting1.HelpText
-                Description     = $setting1.Description
-                Status          = "Only in File1"
-                File1_Value     = $setting1.SelectedOptionLabel
-                File2_Value     = "-"
-                File1_IsDefault = $setting1.IsDefault
-                File2_IsDefault = "-"
-                Explanation     = "Setting only exists in File 1"
-            }
-        }
-        elseif ($setting1.SelectedOption -ne $setting2.SelectedOption) {
-            $report += [PSCustomObject]@{
-                SettingId       = $setting1.SettingId
-                DisplayName     = $setting1.DisplayName
-                HelpText        = $setting1.HelpText
-                Description     = $setting1.Description
-                Status          = "Different"
-                File1_Value     = $setting1.SelectedOptionLabel
-                File2_Value     = $setting2.SelectedOptionLabel
-                File1_IsDefault = $setting1.IsDefault
-                File2_IsDefault = $setting2.IsDefault
-                Explanation     = "Selected options differ"
-            }
-        }
-        else {
-            $report += [PSCustomObject]@{
-                SettingId       = $setting1.SettingId
-                DisplayName     = $setting1.DisplayName
-                HelpText        = $setting1.HelpText
-                Description     = $setting1.Description
-                Status          = "Same"
-                File1_Value     = $setting1.SelectedOptionLabel
-                File2_Value     = $setting2.SelectedOptionLabel
-                File1_IsDefault = $setting1.IsDefault
-                File2_IsDefault = $setting2.IsDefault
-                Explanation     = "Values match"
-            }
-        }
+    if ($null -eq $setting2) {
+      $report += [PSCustomObject]@{
+        SettingId       = $setting1.SettingId
+        DisplayName     = $setting1.DisplayName
+        HelpText        = $setting1.HelpText
+        Description     = $setting1.Description
+        Status          = "Only in Baseline1"
+        Baseline1_Value     = $setting1.SelectedOptionLabel
+        Baseline2_Value     = "-"
+        Baseline1_IsDefault = $setting1.IsDefault
+        Baseline2_IsDefault = "-"
+        Explanation     = "Setting only exists in Baseline 1"
+      }
     }
-
-    foreach ($setting2 in $baseline2) {
-        if (-not ($baseline1 | Where-Object { $_.SettingId -eq $setting2.SettingId })) {
-            $report += [PSCustomObject]@{
-                SettingId       = $setting2.SettingId
-                DisplayName     = $setting2.DisplayName
-                HelpText        = $setting2.HelpText
-                Description     = $setting2.Description
-                Status          = "Only in File2"
-                File1_Value     = "-"
-                File2_Value     = $setting2.SelectedOptionLabel
-                File1_IsDefault = "-"
-                File2_IsDefault = $setting2.IsDefault
-                Explanation     = "Setting only exists in File 2"
-            }
-        }
+    elseif ($setting1.SelectedOption -ne $setting2.SelectedOption) {
+      $report += [PSCustomObject]@{
+        SettingId       = $setting1.SettingId
+        DisplayName     = $setting1.DisplayName
+        HelpText        = $setting1.HelpText
+        Description     = $setting1.Description
+        Status          = "Different"
+        Baseline1_Value     = $setting1.SelectedOptionLabel
+        Baseline2_Value     = $setting2.SelectedOptionLabel
+        Baseline1_IsDefault = $setting1.IsDefault
+        Baseline2_IsDefault = $setting2.IsDefault
+        Explanation     = "Selected options differ"
+      }
     }
+    else {
+      $report += [PSCustomObject]@{
+        SettingId       = $setting1.SettingId
+        DisplayName     = $setting1.DisplayName
+        HelpText        = $setting1.HelpText
+        Description     = $setting1.Description
+        Status          = "Same"
+        Baseline1_Value     = $setting1.SelectedOptionLabel
+        Baseline2_Value     = $setting2.SelectedOptionLabel
+        Baseline1_IsDefault = $setting1.IsDefault
+        Baseline2_IsDefault = $setting2.IsDefault
+        Explanation     = "Values match"
+      }
+    }
+  }
 
-    return $report
+  foreach ($setting2 in $baseline2) {
+    if (-not ($baseline1 | Where-Object { $_.SettingId -eq $setting2.SettingId })) {
+      $report += [PSCustomObject]@{
+        SettingId       = $setting2.SettingId
+        DisplayName     = $setting2.DisplayName
+        HelpText        = $setting2.HelpText
+        Description     = $setting2.Description
+        Status          = "Only in Baseline2"
+        Baseline1_Value     = "-"
+        Baseline2_Value     = $setting2.SelectedOptionLabel
+        Baseline1_IsDefault = "-"
+        Baseline2_IsDefault = $setting2.IsDefault
+        Explanation     = "Setting only exists in Baseline 2"
+      }
+    }
+  }
+
+  return $report
 }
 
 function Export-HtmlReport {
-    param (
-        [Parameter(Mandatory)]
-        $report,
-        [string]$path = "./BaselineComparisonReport",
-        [Parameter(Mandatory)]
-        [object]$Policy1Meta,
-        [Parameter(Mandatory)]
-        [object]$Policy2Meta
-    )
-    $groups = $report | Group-Object Status
-    $modals = ""
-    $groupTables = ""
-    $modalCounter = 0
+  param (
+    [Parameter(Mandatory)]
+    $report,
+    [string]$path = "./BaselineComparisonReport",
+    [Parameter(Mandatory)]
+    [object]$Policy1Meta,
+    [Parameter(Mandatory)]
+    [object]$Policy2Meta
+  )
+  $groups = $report | Group-Object Status
+  $modals = ""
+  $groupTables = ""
+  $modalCounter = 0
 
-    # Count totals
-    $counts = $report | Group-Object -Property Status
-    $total = $report.Count
-    $diffCount = ($counts | Where-Object { $_.Name -eq 'Different' }).Count
-    $file1Count = ($counts | Where-Object { $_.Name -eq 'Only in File1' }).Count
-    $file2Count = ($counts | Where-Object { $_.Name -eq 'Only in File2' }).Count
-    $sameCount = ($counts | Where-Object { $_.Name -eq 'Same' }).Count
+  # Count totals
+  $counts = $report | Group-Object -Property Status
+  $total = $report.Count
+  $diffCount = ($counts | Where-Object { $_.Name -eq 'Different' }).Count
+  $Baseline1Count = ($counts | Where-Object { $_.Name -eq 'Only in Baseline1' }).Count
+  $Baseline2Count = ($counts | Where-Object { $_.Name -eq 'Only in Baseline2' }).Count
+  $sameCount = ($counts | Where-Object { $_.Name -eq 'Same' }).Count
 
-    $summaryBadge = @"
+  $summaryBadge = @"
 <div class='mt-2 mb-6 text-sm font-medium text-green-700 bg-green-100 border border-green-300 rounded px-4 py-2'>
   Compared $total settings |
   $diffCount different |
-  $file1Count only in file1 |
-  $file2Count only in file2 |
+  $Baseline1Count only in Baseline1 |
+  $Baseline2Count only in Baseline2 |
   $sameCount same
 </div>
 "@
-    foreach ($group in $groups) {
-        $groupName = $group.Name
-        $rows = ""
+  foreach ($group in $groups) {
+    $groupName = $group.Name
+    $rows = ""
 
-        foreach ($entry in $group.Group) {
-            $modalId = "modal$modalCounter"
-            $rows += @"
+    foreach ($entry in $group.Group) {
+      $modalId = "modal$modalCounter"
+      $rows += @"
 <tr>
   <td class='border px-3 py-2 text-blue-600 underline cursor-pointer' onclick="openModal('$modalId')">$($entry.DisplayName)</td>
-  <td class='border px-3 py-2'>$($entry.File1_Value)</td>
-  <td class='border px-3 py-2'>$($entry.File2_Value)</td>
-  <td class='border px-3 py-2'>$($entry.File1_IsDefault)</td>
-  <td class='border px-3 py-2'>$($entry.File2_IsDefault)</td>
+  <td class='border px-3 py-2'>$($entry.Baseline1_Value)</td>
+  <td class='border px-3 py-2'>$($entry.Baseline2_Value)</td>
+  <td class='border px-3 py-2'>$($entry.Baseline1_IsDefault)</td>
+  <td class='border px-3 py-2'>$($entry.Baseline2_IsDefault)</td>
   <td class='border px-3 py-2'>$($entry.Explanation)</td>
 </tr>
 "@
 
-            $modals += @"
+      $modals += @"
 <div id='$modalId' class='modal'>
   <div class='modal-content'>
     <span class='close' onclick="closeModal('$modalId')">&times;</span>
@@ -171,29 +328,29 @@ function Export-HtmlReport {
     <p><strong>SettingId:</strong> $($entry.SettingId)</p>
     <p><strong>Description:</strong> $($entry.Description)</p>
     <p><strong>HelpText:</strong> $($entry.HelpText)</p>
-    <p><strong>File1 Value:</strong> $($entry.File1_Value) (Default: $($entry.File1_IsDefault))</p>
-    <p><strong>File2 Value:</strong> $($entry.File2_Value) (Default: $($entry.File2_IsDefault))</p>
+    <p><strong>Baseline1 Value:</strong> $($entry.Baseline1_Value) (Default: $($entry.Baseline1_IsDefault))</p>
+    <p><strong>Baseline2 Value:</strong> $($entry.Baseline2_Value) (Default: $($entry.Baseline2_IsDefault))</p>
     <p><strong>Status:</strong> $($entry.Status)</p>
     <p><strong>Explanation:</strong> $($entry.Explanation)</p>
   </div>
 </div>
 "@
-            $modalCounter++
-        }
+      $modalCounter++
+    }
 
-        $summaryBadge
+    $summaryBadge
 
-        $groupTables += @"
+    $groupTables += @"
 <h2 class='text-xl font-semibold mt-8 mb-2'>$groupName</h2>
 <div class='overflow-x-auto rounded-md border border-border bg-card'>
 <table class='w-full text-sm text-left'>
   <thead class='bg-muted text-muted-foreground'>
     <tr>
       <th class='border px-3 py-2'>DisplayName</th>
-      <th class='border px-3 py-2'>File1 Value</th>
-      <th class='border px-3 py-2'>File2 Value</th>
-      <th class='border px-3 py-2'>File1 Is Default</th>
-      <th class='border px-3 py-2'>File2 Is Default</th>
+      <th class='border px-3 py-2'>Baseline1 Value</th>
+      <th class='border px-3 py-2'>Baseline2 Value</th>
+      <th class='border px-3 py-2'>Baseline1 Is Default</th>
+      <th class='border px-3 py-2'>Baseline2 Is Default</th>
       <th class='border px-3 py-2'>Explanation</th>
     </tr>
   </thead>
@@ -203,9 +360,9 @@ function Export-HtmlReport {
 </table>
 </div>
 "@
-    }
+  }
 
-    $html = @"
+  $html = @"
 <!DOCTYPE html>
 <html lang='en' data-theme='light'>
 <head>
@@ -375,9 +532,9 @@ function Export-HtmlReport {
 </html>
 "@
 
-    $file = "$path.html"
-    Set-Content -Path $file -Value $html -Encoding UTF8
-    Write-Host " HTML report created: $file"
+  $file = "$path.html"
+  Set-Content -Path $file -Value $html -Encoding UTF8
+  Write-Host " HTML report created: $file"
 }
 
 
@@ -385,38 +542,38 @@ function Export-HtmlReport {
 
 
 function Get-PolicyAndConvertToJson {
-    param (
-        [Parameter(Mandatory)]
-        [string]$Name
-    )
+  param (
+    [Parameter(Mandatory)]
+    [string]$Name
+  )
 
-    # TemplateId filter for Baseline family
-    $filter = @"
+  # TemplateId filter for Baseline family
+  $filter = @"
 (templateReference/TemplateId eq '66df8dce-0166-4b82-92f7-1f74e3ca17a3_1' or 
  templateReference/TemplateId eq '66df8dce-0166-4b82-92f7-1f74e3ca17a3_3' or 
  templateReference/TemplateId eq '66df8dce-0166-4b82-92f7-1f74e3ca17a3_4') 
  and templateReference/TemplateFamily eq 'Baseline'
 "@ -replace "`r`n", ""
 
-    $encodedFilter = [System.Web.HttpUtility]::UrlEncode($filter)
-    $uri = "https://graph.microsoft.com/beta/deviceManagement/configurationPolicies?`$filter=$encodedFilter"
-    $response = Invoke-MgGraphRequest -Method GET -Uri $uri
+  $encodedFilter = [System.Web.HttpUtility]::UrlEncode($filter)
+  $uri = "https://graph.microsoft.com/beta/deviceManagement/configurationPolicies?`$filter=$encodedFilter"
+  $response = Invoke-MgGraphRequest -Method GET -Uri $uri
 
-    # Find policy by name (case-insensitive)
-    $policy = $response.value | Where-Object { $_.name -ieq $Name }
+  # Find policy by name (case-insensitive)
+  $policy = $response.value | Where-Object { $_.name -ieq $Name }
 
-    if (-not $policy) {
-        throw "Policy with name '$Name' not found in baseline search."
-    }
+  if (-not $policy) {
+    throw "Policy with name '$Name' not found in baseline search."
+  }
 
-    Write-Host "Found policy '$($policy.name)' with id $($policy.id)" -ForegroundColor Green
+  Write-Host "Found policy '$($policy.name)' with id $($policy.id)" -ForegroundColor Green
 
-    # Fetch full policy with expanded fields
-    $fullUri = "https://graph.microsoft.com/beta/deviceManagement/configurationPolicies/$($policy.id)" +
-    "?`$expand=assignments,settings(`$expand=settingDefinitions)"
+  # Fetch full policy with expanded fields
+  $fullUri = "https://graph.microsoft.com/beta/deviceManagement/configurationPolicies/$($policy.id)" +
+  "?`$expand=assignments,settings(`$expand=settingDefinitions)"
 
-    $fullResponse = Invoke-MgGraphRequest -Method GET -Uri $fullUri
-    return $fullResponse
+  $fullResponse = Invoke-MgGraphRequest -Method GET -Uri $fullUri
+  return $fullResponse
 }
 
 
@@ -434,10 +591,10 @@ $parsed2 = Get-SettingsFromJson -pathObject $baseline2
 $diffReport = Compare-Baselines -baseline1 $parsed1 -baseline2 $parsed2
 
 switch ($OutputType) {
-    "Console" { $diffReport | Format-Table -AutoSize }
-    "Csv" { $diffReport | Export-Csv -Path "$OutputPath.csv" -NoTypeInformation; Write-Host "CSV report saved to $OutputPath.csv" }
-    "Html" {
-        Export-HtmlReport -report $diffReport -path "./Report" `
-            -Policy1Meta $baseline1 -Policy2Meta $baseline2 
-    }
+  "Console" { $diffReport | Format-Table -AutoSize }
+  "Csv" { $diffReport | Export-Csv -Path "$OutputPath.csv" -NoTypeInformation; Write-Host "CSV report saved to $OutputPath.csv" }
+  "Html" {
+    Export-HtmlReport -report $diffReport -path "./Report" `
+      -Policy1Meta $baseline1 -Policy2Meta $baseline2 
+  }
 }
