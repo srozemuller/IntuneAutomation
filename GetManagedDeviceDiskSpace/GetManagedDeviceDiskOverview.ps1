@@ -945,7 +945,7 @@ try {
         $crit = $CriticalThreshold
         $warn = $WarningThreshold
         
-        $storageData = $devices[0..50] | ForEach-Object -ThrottleLimit 50 -Parallel {
+        $storageData = $devices | ForEach-Object -ThrottleLimit 50 -Parallel {
             $selectProperties = @(
                 "id",
                 "deviceName",
