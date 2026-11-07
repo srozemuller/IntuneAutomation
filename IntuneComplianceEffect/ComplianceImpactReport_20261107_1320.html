@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Compliance impact report: rozemuller (d9e7bad9-ae68-4a71-9c92-8508128134a2)</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#6b7385; --line:#e3e6ec;
+          --red:#c62828; --orange:#e67700; --yellow:#b59a00; --green:#2e7d32; --purple:#6a1b9a; --grey:#78808f; }
+  * { box-sizing:border-box }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); margin:0; padding:32px; font-size:14px }
+  h1 { margin:0 0 4px; font-size:24px } h2 { font-size:18px; margin:32px 0 12px }
+  .meta { color:var(--muted); margin-bottom:20px }
+  .banner { padding:12px 16px; border-radius:8px; border-left:5px solid; background:var(--card); margin-bottom:20px }
+  .banner.green { border-color:var(--green) } .banner.orange { border-color:var(--orange) }
+  .tiles { display:flex; gap:12px; flex-wrap:wrap }
+  .tile { background:var(--card); border-radius:8px; padding:14px 18px; min-width:160px; border-top:4px solid; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.05) }
+  .tile.active { outline:2px solid var(--text) }
+  .tile .num { font-size:28px; font-weight:600 } .tile .lbl { color:var(--muted) }
+  .tile.red{border-color:var(--red)} .tile.orange{border-color:var(--orange)} .tile.yellow{border-color:var(--yellow)}
+  .tile.green{border-color:var(--green)} .tile.purple{border-color:var(--purple)} .tile.grey{border-color:var(--grey)}
+  .toolbar { margin:16px 0 8px; display:flex; gap:8px }
+  .toolbar input { padding:8px 10px; border:1px solid var(--line); border-radius:6px; width:320px; font:inherit }
+  .toolbar button { padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); cursor:pointer; font:inherit }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:8px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.05) }
+  th { text-align:left; background:#eef0f4; padding:10px; font-weight:600; position:sticky; top:0 }
+  td { padding:10px; border-top:1px solid var(--line); vertical-align:top }
+  .sub { color:var(--muted); font-size:12px } .outcome { font-size:12px; margin-top:4px }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; color:#fff; font-size:12px; white-space:nowrap }
+  .badge.red{background:var(--red)} .badge.orange{background:var(--orange)} .badge.yellow{background:var(--yellow)}
+  .badge.green{background:var(--green)} .badge.purple{background:var(--purple)} .badge.grey{background:var(--grey)}
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px }
+  .dot.red{background:var(--red)} .dot.orange{background:var(--orange)} .dot.yellow{background:var(--yellow)} .dot.grey{background:var(--grey)} .dot.blue{background:#1565c0}
+  .tag { display:inline-block; padding:1px 6px; margin:1px 0; border:1px solid var(--line); border-radius:4px; font-size:12px; background:#f3f5f8; white-space:nowrap }
+  .note { color:var(--muted); font-size:12px; margin-top:8px }
+  @media print { body{padding:0;background:#fff} .toolbar{display:none} th{position:static} }
+</style></head>
+<body>
+<h1>Devices without a compliance policy: Conditional Access impact</h1>
+<div class="meta">rozemuller (d9e7bad9-ae68-4a71-9c92-8508128134a2) | Generated 2026-11-07 13:20 | Report: DevicesWithoutCompliancePolicyV3</div>
+<div class='banner orange'><b>secureByDefault = False.</b> Devices without a compliance policy are marked <b>compliant</b> and pass every Conditional Access policy that requires a compliant device.</div>
+<div class="tiles"><div class='tile red' data-cat='Blocked'><div class='num'>0</div><div class='lbl'>Blocked</div></div>
+<div class='tile orange' data-cat='AtRisk'><div class='num'>0</div><div class='lbl'>Compliant only by default</div></div>
+<div class='tile purple' data-cat='Unprotected'><div class='num'>1</div><div class='lbl'>Not compliant, not blocked</div></div>
+<div class='tile grey' data-cat='CompliantByDefault'><div class='num'>1</div><div class='lbl'>Compliant by default, no impact</div></div>
+<div class='tile green' data-cat='Compliant'><div class='num'>0</div><div class='lbl'>Compliant</div></div></div>
+
+<h2>Effect per device (2)</h2>
+<div class="toolbar">
+  <input id="q" placeholder="Search device, user, policy..." oninput="filter()">
+  <button onclick="setCat(null)">Show all</button>
+</div>
+<table id="dev">
+<thead><tr><th>Device</th><th>User</th><th>OS</th><th>Ownership</th><th>Compliance state</th><th>Last contact</th><th>Effect</th><th>Blocking CA policies</th></tr></thead>
+<tbody>
+<tr data-cat='Unprotected'>
+  <td><b>SANDERROZEM0474</b><div class='sub'>Parallels ARM Virtual Machine</div></td>
+  <td>John Doe<div class='sub'>johndoe@rozemuller.com</div></td>
+  <td>Windows <span class='sub'>10.0.26300.9457</span></td>
+  <td>Personal</td>
+  <td>Not compliant</td>
+  <td>2026-10-06 16:20:32.0000000</td>
+  <td><span class='badge purple'>Not compliant, not blocked</span><div class='outcome'>Not compliant, but no enforced policy blocks this user/platform</div></td>
+  <td></td>
+</tr>
+<tr data-cat='CompliantByDefault'>
+  <td><b>SANDERROZEMDBD1</b><div class='sub'>Parallels ARM Virtual Machine</div></td>
+  <td>Sander Rozemuller<div class='sub'>sander@rozemuller.com</div></td>
+  <td>Windows <span class='sub'>10.0.26100.9550</span></td>
+  <td>Company</td>
+  <td>Compliant</td>
+  <td>2026-11-07 11:58:31.7039343</td>
+  <td><span class='badge grey'>Compliant by default, no impact</span><div class='outcome'>Compliant by default; no enforced policy would block it anyway</div></td>
+  <td></td>
+</tr>
+</tbody></table>
+<div class="note">Evaluated per device: users, groups, roles and platform. App, location, sign-in risk and client-app conditions are not evaluated.</div>
+
+<h2>Conditional Access policies related to devices or compliance (10 of 10)</h2>
+<table>
+<thead><tr><th>Policy</th><th>State</th><th>Why included</th><th>Grant</th><th>Users</th><th>Apps</th><th>Platforms</th><th>Effect on a non-compliant device</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>CAD012-ALL: Grant access for Admin users when Browser and Modern Auth Clients and Compliant-v1.1</b></td>
+  <td><span class='badge grey'>Disabled</span></td>
+  <td><span class='tag'>Grant: compliant device</span> <span class='tag'>Grant: hybrid joined device</span> <span class='tag'>Device state (legacy)</span></td>
+  <td>compliantDevice, domainJoinedDevice <span class='sub'>(OR)</span></td>
+  <td>(excl. 1); 26 roles</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot grey'></span>[Disabled, no effect] Not blocked: the user can satisfy the policy with domainJoinedDevice instead of a compliant device</td>
+</tr>
+<tr>
+  <td><b>CAU011-All: Block access for All users except licensed when Browser and Modern Auth Clients-v1.0</b></td>
+  <td><span class='badge grey'>Disabled</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td>block <span class='sub'>(OR)</span></td>
+  <td>All users; (excl. 3); (excl. 2)</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot grey'></span>[Disabled, no effect] No compliance effect. Blocks access on all platforms</td>
+</tr>
+<tr>
+  <td><b>CA001: Require strong multifactor authentication for admins</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td> <span class='sub'>(OR)</span></td>
+  <td>(excl. 2); 14 roles</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Session controls only on all platforms</td>
+</tr>
+<tr>
+  <td><b>CA002: Block break-glass logins from untrusted locations</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td>block <span class='sub'>(OR)</span></td>
+  <td>1 users</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Blocks access on all platforms</td>
+</tr>
+<tr>
+  <td><b>CA003: Block legacy authentication</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td>block <span class='sub'>(OR)</span></td>
+  <td>All users (excl. 4)</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Blocks access on all platforms</td>
+</tr>
+<tr>
+  <td><b>CA003: Sign-in every hour for admin accounts</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td></td>
+  <td>(excl. 1); 1 roles</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Session controls only on all platforms</td>
+</tr>
+<tr>
+  <td><b>CA102: Block legacy authentication for all users</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td>block <span class='sub'>(OR)</span></td>
+  <td>All users; (excl. 1)</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Blocks access on all platforms</td>
+</tr>
+<tr>
+  <td><b>CAA001-All: Block Guest Users to Graph Explorer-v1.0</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td>block <span class='sub'>(OR)</span></td>
+  <td></td>
+  <td>1 apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Blocks access on all platforms</td>
+</tr>
+<tr>
+  <td><b>CAU006-All: Grant access for Medium and High Risk Sign-in for All Users when Browser and Modern Auth Clients require MFA-v1.3</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td>mfa <span class='sub'>(OR)</span></td>
+  <td>All users (excl. 2)</td>
+  <td>All apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Requires mfa on all platforms</td>
+</tr>
+<tr>
+  <td><b>CAVD001: Single Sign On AVD - old</b></td>
+  <td><span class='badge green'>Enforced</span></td>
+  <td><span class='tag'>Device state (legacy)</span></td>
+  <td>mfa <span class='sub'>(OR)</span></td>
+  <td>1 groups</td>
+  <td>2 apps</td>
+  <td>All</td>
+  <td><span class='dot blue'></span>No compliance effect. Requires mfa on all platforms</td>
+</tr>
+</tbody></table>
+<div class="note"><span class="dot red"></span>blocks non-compliant devices <span class="dot orange"></span>can be bypassed via another grant control (OR) <span class="dot yellow"></span>review manually <span class="dot blue"></span>device related, no compliance effect <span class="dot grey"></span>disabled</div>
+
+<script>
+  let cat = null;
+  function setCat(c) {
+    cat = (cat === c) ? null : c;
+    document.querySelectorAll('.tile').forEach(t => t.classList.toggle('active', t.dataset.cat === cat));
+    filter();
+  }
+  function filter() {
+    const q = document.getElementById('q').value.toLowerCase();
+    document.querySelectorAll('#dev tbody tr').forEach(r => {
+      const okCat = !cat || r.dataset.cat === cat;
+      const okQ = !q || r.textContent.toLowerCase().includes(q);
+      r.style.display = (okCat && okQ) ? '' : 'none';
+    });
+  }
+  document.querySelectorAll('.tile').forEach(t => t.addEventListener('click', () => setCat(t.dataset.cat)));
+</script>
+</body></html>
